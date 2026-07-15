@@ -1,0 +1,15 @@
+[theme]
+# Set the base theme to light
+base = "light"
+
+# Set the primary accent color (VSSUT/Kratu Green)
+primaryColor = "#2E7D32"
+
+# Set the background to a very soft grey so the white cards pop out
+backgroundColor = "#F4F6F9"
+
+# Set the secondary background (like the sidebar and form cards) to pure white
+secondaryBackgroundColor = "#FFFFFF"
+
+# Use a clean, modern font
+font = "sans serif"
