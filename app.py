@@ -37,7 +37,7 @@ with tab1:
         q3 = st.slider("Service Quality (Max: 20)", 0, 20, 15, 1)
         q4 = st.slider("Student Satisfaction (Max: 10)", 0, 10, 7, 1)
         
-        submitted = st.form_submit_with_button("Submit Anonymous Ratings", use_container_width=True)
+        submitted = st.form_submit_button("Submit Anonymous Ratings", use_container_width=True)
         
         if submitted:
             if not room_number.strip():
