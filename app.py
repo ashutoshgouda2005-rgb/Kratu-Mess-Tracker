@@ -29,7 +29,13 @@ with tab1:
     
     with st.form("feedback_form", clear_on_submit=True):
         st.subheader("1. Identification")
-        room_number = st.text_input("Room Number", placeholder="Enter your room number (e.g., 101-K)")
+        
+        # Side-by-side columns for Room and Name
+        col1, col2 = st.columns(2)
+        with col1:
+            room_number = st.text_input("Room Number", placeholder="e.g., 101-K")
+        with col2:
+            student_name = st.text_input("Your Name", placeholder="Enter your name")
         
         st.subheader("2. Evaluation Metrics (Annexure-14)")
         q1 = st.slider("Food Quality, Quantity, and Taste (Max: 40)", 0, 40, 25, 1)
@@ -37,28 +43,32 @@ with tab1:
         q3 = st.slider("Service Quality (Max: 20)", 0, 20, 15, 1)
         q4 = st.slider("Student Satisfaction (Max: 10)", 0, 10, 7, 1)
         
+        st.subheader("3. Additional Context")
+        comments = st.text_area("Specific Issues? (Optional)", placeholder="Briefly explain any problems with the food, taste, or service today...")
+        
         submitted = st.form_submit_button("Submit Anonymous Ratings", use_container_width=True)
         
         if submitted:
-            if not room_number.strip():
-                st.error("Submission failed: Room Number is required.")
+            if not room_number.strip() or not student_name.strip():
+                st.error("Submission failed: Both Room Number and Name are required to prevent duplicate entries.")
             else:
                 total_score = q1 + q2 + q3 + q4
                 payload = {
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "room": room_number.strip().upper(),
+                    "name": student_name.strip().title(),
                     "food": q1,
                     "hygiene": q2,
                     "service": q3,
                     "satisfaction": q4,
-                    "total": total_score
+                    "total": total_score,
+                    "comments": comments.strip()
                 }
                 
                 try:
-                    # Send data securely to Google Apps Script
                     response = requests.post(WEBAPP_URL, json=payload)
                     if response.status_code == 200 and response.json().get("status") == "success":
-                        st.success("Success! Your ratings have been recorded securely.")
+                        st.success("Success! Your ratings and comments have been recorded.")
                     else:
                         st.error("Submission failed on the server side.")
                 except Exception as e:
@@ -76,7 +86,6 @@ with tab2:
         st.success("Access Granted.")
         
         try:
-            # Bypass Google cache for real-time data updates
             cache_busting_url = f"{SHEET_CSV_URL}&t={int(time.time())}"
             df = pd.read_csv(cache_busting_url)
             
@@ -114,6 +123,7 @@ with tab2:
                 st.plotly_chart(fig_trend, use_container_width=True)
                 
                 st.markdown("### Verified Data Audit Log")
+                # The dataframe will automatically include the new Name and Comments columns
                 st.dataframe(df.sort_values(by="Timestamp", ascending=False), use_container_width=True)
                 
                 csv = df.to_csv(index=False).encode('utf-8')
