@@ -13,10 +13,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. Modern UI Custom CSS ---
+# --- 2. Slim Hero Banner (FIXED) ---
+# This forces the image to be a short, wide banner instead of a giant square
+st.markdown("""
+<img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80" style="width: 100%; height: 180px; object-fit: cover; border-radius: 15px; margin-bottom: 20px;">
+""", unsafe_allow_html=True)
+
+# --- 3. Modern UI Custom CSS (FIXED) ---
 st.markdown("""
 <style>
-    /* Hide the default Streamlit top menu and footer for a clean app look */
+    /* Hide the default Streamlit top menu and footer */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
@@ -24,26 +30,28 @@ st.markdown("""
     /* Style the Forms to look like floating modern cards */
     [data-testid="stForm"] {
         background-color: #ffffff;
-        border-radius: 20px;
-        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.05);
+        border-radius: 15px;
+        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
         border: 1px solid #f0f2f6;
         padding: 25px;
+        margin-bottom: 20px;
     }
     
-    /* Style the Submit Buttons with a modern gradient and hover animation */
-    [data-testid="baseButton-secondaryFormSubmit"] {
-        background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
-        color: white;
-        border-radius: 30px;
-        border: none;
-        box-shadow: 0px 4px 10px rgba(76, 175, 80, 0.3);
-        font-weight: bold;
-        transition: all 0.3s ease;
+    /* Force ALL submit buttons inside forms to have the green gradient */
+    [data-testid="stForm"] button {
+        background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%) !important;
+        color: white !important;
+        border-radius: 30px !important;
+        border: none !important;
+        box-shadow: 0px 4px 10px rgba(76, 175, 80, 0.3) !important;
+        font-weight: bold !important;
+        transition: all 0.3s ease !important;
+        padding: 10px 20px !important;
     }
-    [data-testid="baseButton-secondaryFormSubmit"]:hover {
+    
+    [data-testid="stForm"] button:hover {
         transform: translateY(-2px);
-        box-shadow: 0px 6px 15px rgba(76, 175, 80, 0.5);
-        color: white;
+        box-shadow: 0px 6px 15px rgba(76, 175, 80, 0.5) !important;
     }
     
     /* Improve the styling of Tabs */
@@ -63,8 +71,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. Hero Banner Image ---
-st.image("https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80", use_container_width=True)
 
 # --- 4. Fetch Variables from Secrets ---
 WEBAPP_URL = st.secrets["WEBAPP_URL"]
@@ -79,8 +85,8 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 Ratings", "📅 Leave Rebate", "🍲 Men
 # TAB 1: RATINGS 
 # ==========================================
 with tab1:
-    st.subheader("Daily Catering Evaluation")
-    st.markdown("Rate the mess based strictly on Annexure-14 guidelines.")
+    st.markdown("### Daily Catering Evaluation")
+    st.caption("Rate the mess based strictly on Annexure-14 guidelines.")
     
     with st.form("feedback_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
@@ -115,7 +121,7 @@ with tab1:
 # TAB 2: LEAVE & REBATE CALCULATOR
 # ==========================================
 with tab2:
-    st.subheader("Official Mess Rebate Application")
+    st.markdown("### Official Mess Rebate Application")
     st.info("Rule: You must apply 3 days prior, and the leave must be a continuous period of 5+ days.")
     
     with st.form("leave_form", clear_on_submit=True):
@@ -153,8 +159,8 @@ with tab2:
 # TAB 3: MENU POLL
 # ==========================================
 with tab3:
-    st.subheader("Weekly Sunday Special Poll")
-    st.markdown("Vote for next week's special dinner item. The majority wins.")
+    st.markdown("### Weekly Sunday Special Poll")
+    st.caption("Vote for next week's special dinner item. The majority wins.")
     
     with st.form("poll_form", clear_on_submit=True):
         p_room = st.text_input("Room No.")
@@ -180,7 +186,7 @@ with tab3:
 # TAB 4: ADMIN DASHBOARD
 # ==========================================
 with tab4:
-    st.subheader("Administrative Performance Panel")
+    st.markdown("### Administrative Performance Panel")
     
     password_input = st.text_input("Enter Admin Password to Unlock", type="password")
     
@@ -207,14 +213,14 @@ with tab4:
                         avg_total = df_scores["Total Score"].mean()
                         student_weighted_score = (avg_total / 100) * 50
                         
-                        st.markdown("### Executive Summary")
+                        st.markdown("#### Executive Summary")
                         col1, col2, col3 = st.columns(3)
                         col1.metric("Total Ballots Cast", f"{total_responses}")
                         col2.metric("Raw Score Avg", f"{avg_total:.2f} / 100")
                         col3.metric("Final Weighted Score", f"{student_weighted_score:.2f} / 50")
                         
                         st.markdown("---")
-                        st.markdown("### Chronological Performance Trajectory")
+                        st.markdown("#### Chronological Performance Trajectory")
                         df_scores['Timestamp'] = pd.to_datetime(df_scores['Timestamp'])
                         df_sorted = df_scores.sort_values(by='Timestamp')
                         df_sorted['Date'] = df_sorted['Timestamp'].dt.date
@@ -228,7 +234,7 @@ with tab4:
                         fig_trend.add_hline(y=70, line_dash="dash", line_color="red")
                         st.plotly_chart(fig_trend, use_container_width=True)
                 
-                st.markdown("### Verified Data Audit Log")
+                st.markdown("#### Verified Data Audit Log")
                 st.dataframe(df.sort_values(by="Timestamp", ascending=False), use_container_width=True)
                 
                 csv = df.to_csv(index=False).encode('utf-8')
