@@ -1,252 +1,227 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import time
 import plotly.express as px
 
-# --- 1. Page Configuration ---
-st.set_page_config(
-    page_title="Kratu Hall ERP", 
-    page_icon="🏛️", 
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Kratu Hall ERP", page_icon="🏛️", layout="centered")
 
-# --- 2. Slim Hero Banner (FIXED) ---
-# This forces the image to be a short, wide banner instead of a giant square
-st.markdown("""
-<img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80" style="width: 100%; height: 180px; object-fit: cover; border-radius: 15px; margin-bottom: 20px;">
-""", unsafe_allow_html=True)
-
-# --- 3. Modern UI Custom CSS (FIXED) ---
+# --- Custom CSS & Banner ---
 st.markdown("""
 <style>
-    /* Hide the default Streamlit top menu and footer */
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* Style the Forms to look like floating modern cards */
+    #MainMenu, header, footer {visibility: hidden;}
     [data-testid="stForm"] {
-        background-color: #ffffff;
-        border-radius: 15px;
-        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
-        border: 1px solid #f0f2f6;
-        padding: 25px;
-        margin-bottom: 20px;
+        background-color: #ffffff; border-radius: 15px;
+        box-shadow: 0px 8px 20px rgba(0,0,0,0.08); border: 1px solid #f0f2f6;
+        padding: 25px; margin-bottom: 20px;
     }
-    
-    /* Force ALL submit buttons inside forms to have the green gradient */
     [data-testid="stForm"] button {
         background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%) !important;
-        color: white !important;
-        border-radius: 30px !important;
-        border: none !important;
-        box-shadow: 0px 4px 10px rgba(76, 175, 80, 0.3) !important;
-        font-weight: bold !important;
-        transition: all 0.3s ease !important;
-        padding: 10px 20px !important;
+        color: white !important; border-radius: 30px !important; border: none !important;
+        box-shadow: 0px 4px 10px rgba(76,175,80,0.3) !important; font-weight: bold !important;
+        padding: 10px 20px !important; transition: all 0.3s ease !important;
     }
-    
-    [data-testid="stForm"] button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0px 6px 15px rgba(76, 175, 80, 0.5) !important;
-    }
-    
-    /* Improve the styling of Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 10px 10px 0px 0px;
-        padding: 10px 20px;
-        background-color: #f8f9fa;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #e8f5e9;
-        color: #2E7D32 !important;
-        font-weight: bold;
-    }
+    [data-testid="stForm"] button:hover { transform: translateY(-2px); }
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""<img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80" style="width: 100%; height: 180px; object-fit: cover; border-radius: 15px; margin-bottom: 20px;">""", unsafe_allow_html=True)
 
-# --- 4. Fetch Variables from Secrets ---
+# --- Fetch Secrets ---
 WEBAPP_URL = st.secrets["WEBAPP_URL"]
 SHEET_CSV_URL = st.secrets["SHEET_CSV_URL"]
+CONFIG_CSV_URL = st.secrets["CONFIG_CSV_URL"]
+STUDENT_DB_CSV_URL = st.secrets["STUDENT_DB_CSV_URL"]
 ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
 
-# --- 5. Main App Navigation ---
+# --- Fetch Dynamic Menu & Student DB ---
+try:
+    df_config = pd.read_csv(f"{CONFIG_CSV_URL}&t={int(time.time())}")
+    dynamic_menu = df_config['Menu Items'].dropna().tolist()
+except:
+    dynamic_menu = ["Menu loading... (Admin must set menu)"]
+
+try:
+    # This reads your new database tab!
+    df_students = pd.read_csv(f"{STUDENT_DB_CSV_URL}&t={int(time.time())}")
+    # This combines the Room Number and Name into one clean dropdown option
+    df_students['Identity'] = df_students['Room No'].astype(str) + " - " + df_students['Name']
+    student_identities = ["Select your Room & Name..."] + df_students['Identity'].tolist()
+except:
+    student_identities = ["Database loading error. Please refresh."]
+
+# --- Navigation ---
 st.title("Kratu Hall Digital Portal")
-tab1, tab2, tab3, tab4 = st.tabs(["📝 Ratings", "📅 Leave Rebate", "🍲 Menu Poll", "📊 Admin"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 Ratings", "🔄 Diet Switch", "📅 Rebate", "🍲 Poll", "📊 Admin"])
 
 # ==========================================
-# TAB 1: RATINGS 
+# TAB 1: RATINGS (Smart Dropdown Integrated)
 # ==========================================
 with tab1:
     st.markdown("### Daily Catering Evaluation")
-    st.caption("Rate the mess based strictly on Annexure-14 guidelines.")
+    st.info(f"**Today's Highlight Menu:** {', '.join(dynamic_menu[:3])}...") 
     
     with st.form("feedback_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        room_number = col1.text_input("Room Number", placeholder="e.g., 101-K")
-        student_name = col2.text_input("Name", placeholder="Enter your name")
+        col_m1, col_m2 = st.columns(2)
+        meal_date = col_m1.date_input("Meal Date", max_value=date.today())
+        meal_type = col_m2.selectbox("Meal Type", ["Breakfast", "Lunch", "Snacks", "Dinner"])
+        
+        # SMART DROPDOWN
+        identity = st.selectbox("Who are you? (Room - Name)*", student_identities)
+        reg_no = st.text_input("Registration Number* (Acts as your signature)", placeholder="e.g., 230203...")
         
         st.markdown("---")
         q1 = st.slider("Food Quality & Taste (Max: 40)", 0, 40, 25)
         q2 = st.slider("Hygiene & Sanitation (Max: 30)", 0, 30, 20)
         q3 = st.slider("Service Quality (Max: 20)", 0, 20, 15)
         q4 = st.slider("Student Satisfaction (Max: 10)", 0, 10, 7)
-        comments = st.text_area("Specific Issues? (Optional)")
+        comments = st.text_area("General Feedback or Specific Issues (Optional)")
         
         if st.form_submit_button("Submit Rating", use_container_width=True):
-            if not room_number or not student_name:
-                st.error("Room Number and Name are required.")
+            if identity.startswith("Select") or not reg_no:
+                st.error("Please select your identity and provide your Registration Number.")
             else:
+                # The code splits your smart dropdown back into separate columns for Google Sheets!
+                room_number = identity.split(" - ")[0]
+                student_name = identity.split(" - ")[1]
+                
                 payload = {
-                    "action": "rating", 
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "room": room_number.upper(), "name": student_name.title(),
+                    "action": "rating", "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "meal_date": str(meal_date), "meal_type": meal_type,
+                    "reg": reg_no, "room": room_number.upper(), "name": student_name.title(),
                     "food": q1, "hygiene": q2, "service": q3, "satisfaction": q4,
                     "total": q1+q2+q3+q4, "comments": comments
                 }
-                try:
-                    requests.post(WEBAPP_URL, json=payload)
-                    st.success("Rating submitted successfully.")
-                except Exception as e:
-                    st.error(f"Network error. Details: {e}")
+                requests.post(WEBAPP_URL, json=payload)
+                st.success("Rating submitted securely.")
 
 # ==========================================
-# TAB 2: LEAVE & REBATE CALCULATOR
+# TAB 2: DIET SWITCH 
 # ==========================================
 with tab2:
-    st.markdown("### Official Mess Rebate Application")
-    st.info("Rule: You must apply 3 days prior, and the leave must be a continuous period of 5+ days.")
+    st.markdown("### 🔄 Daily Diet Override")
+    st.info("Switch your diet temporarily for tomorrow. **Deadline: 10:00 PM nightly.**")
     
-    with st.form("leave_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        l_room = col1.text_input("Room No.")
-        l_name = col2.text_input("Full Name")
-        
-        start_date = st.date_input("Departure Date", min_value=date.today())
-        end_date = st.date_input("Return Date", min_value=date.today())
-        reason = st.text_input("Reason & Approving Authority (e.g., Medical - HoD Approved)")
-        
-        delta = end_date - start_date
-        leave_days = delta.days
-        
-        if st.form_submit_button("Apply for Rebate", use_container_width=True):
-            if not l_room or not l_name:
-                st.error("Identification required.")
-            elif leave_days < 5:
-                st.error(f"Application Denied: Your leave is {leave_days} days. Rules require a minimum of 5 continuous days for a rebate.")
-            else:
-                payload = {
-                    "action": "leave", 
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "room": l_room.upper(), "name": l_name.title(),
-                    "start_date": str(start_date), "end_date": str(end_date),
-                    "days": leave_days, "reason": reason
-                }
-                try:
+    ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+    tomorrow_date = ist_now.date() + timedelta(days=1)
+    is_past_deadline = ist_now.hour >= 22
+    
+    if is_past_deadline:
+        st.error(f"The 10:00 PM deadline has passed. You cannot change your preference for {tomorrow_date}.")
+    else:
+        st.success(f"Open: You are selecting your preference for tomorrow ({tomorrow_date}).")
+        with st.form("switch_form", clear_on_submit=True):
+            identity_s = st.selectbox("Who are you? (Room - Name)*", student_identities)
+            new_diet = st.radio("Tomorrow's Preference:", ["Vegetarian", "Non-Vegetarian"])
+            
+            if st.form_submit_button("Lock in Preference", use_container_width=True):
+                if identity_s.startswith("Select"):
+                    st.error("Please select your identity.")
+                else:
+                    room_s = identity_s.split(" - ")[0]
+                    name_s = identity_s.split(" - ")[1]
+                    payload = {
+                        "action": "switch", "timestamp": ist_now.strftime("%Y-%m-%d %H:%M:%S"),
+                        "target_date": str(tomorrow_date), "room": room_s.upper(),
+                        "name": name_s.title(), "diet": new_diet
+                    }
                     requests.post(WEBAPP_URL, json=payload)
-                    st.success(f"Approved! {leave_days} days of rebate logged for processing.")
-                except Exception as e:
-                    st.error(f"Network error: {e}")
+                    st.success(f"Success! Your diet for {tomorrow_date} is logged as {new_diet}.")
 
 # ==========================================
-# TAB 3: MENU POLL
+# TAB 3: LEAVE & REBATE
 # ==========================================
 with tab3:
-    st.markdown("### Weekly Sunday Special Poll")
-    st.caption("Vote for next week's special dinner item. The majority wins.")
-    
-    with st.form("poll_form", clear_on_submit=True):
-        p_room = st.text_input("Room No.")
-        p_name = st.text_input("Name")
-        vote = st.radio("Select your preference:", ["Chicken Biryani", "Mutton Curry", "Paneer Butter Masala", "Mushroom Do Pyaza"])
+    st.markdown("### Official Mess Rebate Application")
+    with st.form("leave_form", clear_on_submit=True):
+        identity_l = st.selectbox("Who are you? (Room - Name)*", student_identities)
+        l_reg = st.text_input("Registration Number*")
         
-        if st.form_submit_button("Cast Vote", use_container_width=True):
-            if not p_room or not p_name:
-                st.error("Identification required.")
+        col1, col2 = st.columns(2)
+        start_date = col1.date_input("Departure Date", min_value=date.today())
+        end_date = col2.date_input("Return Date", min_value=date.today())
+        
+        reason = st.text_input("Reason & Approving Authority (e.g., Medical - HoD)")
+        proof_link = st.text_input("Link to Proof (Paste Google Drive/Photo link here)")
+        
+        leave_days = (end_date - start_date).days
+        
+        if st.form_submit_button("Apply for Rebate", use_container_width=True):
+            if leave_days < 5:
+                st.error(f"Denied: Your leave is {leave_days} days. Rules require a minimum of 5.")
+            elif identity_l.startswith("Select") or not l_reg:
+                st.error("Identity and Registration Number are required.")
             else:
+                room_l = identity_l.split(" - ")[0]
+                name_l = identity_l.split(" - ")[1]
                 payload = {
-                    "action": "poll", 
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "room": p_room.upper(), "name": p_name.title(), "vote": vote
+                    "action": "leave", "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "reg": l_reg, "room": room_l.upper(), "name": name_l.title(),
+                    "start_date": str(start_date), "end_date": str(end_date),
+                    "days": leave_days, "reason": reason, "link": proof_link
                 }
-                try:
-                    requests.post(WEBAPP_URL, json=payload)
-                    st.success("Your vote has been counted!")
-                except Exception as e:
-                    st.error(f"Network error: {e}")
+                requests.post(WEBAPP_URL, json=payload)
+                st.success("Rebate logged for processing.")
 
 # ==========================================
-# TAB 4: ADMIN DASHBOARD
+# TAB 4: MENU POLL 
 # ==========================================
 with tab4:
-    st.markdown("### Administrative Performance Panel")
-    
+    st.markdown("### Weekly Menu Poll")
+    with st.form("poll_form", clear_on_submit=True):
+        identity_p = st.selectbox("Who are you? (Room - Name)*", student_identities)
+        vote = st.radio("Select your preference:", dynamic_menu)
+        
+        if st.form_submit_button("Cast Vote", use_container_width=True):
+            if identity_p.startswith("Select"):
+                st.error("Please select your identity.")
+            else:
+                room_p = identity_p.split(" - ")[0]
+                name_p = identity_p.split(" - ")[1]
+                payload = {
+                    "action": "poll", "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "room": room_p.upper(), "name": name_p.title(), "vote": vote
+                }
+                requests.post(WEBAPP_URL, json=payload)
+                st.success("Your vote has been counted!")
+
+# ==========================================
+# TAB 5: ADMIN DASHBOARD 
+# ==========================================
+with tab5:
     password_input = st.text_input("Enter Admin Password to Unlock", type="password")
     
     if password_input == ADMIN_PASSWORD:
         st.success("Access Granted.")
         
+        # --- CMS Control Panel ---
+        st.markdown("#### ⚙️ Control Panel: Update Menu")
+        with st.form("update_menu_form"):
+            new_menu_string = st.text_input("Enter new options (separated by commas):", value=", ".join(dynamic_menu))
+            if st.form_submit_button("Publish New Menu", use_container_width=True):
+                menu_list = [item.strip() for item in new_menu_string.split(',')]
+                requests.post(WEBAPP_URL, json={"action": "update_menu", "menu_items": menu_list})
+                st.success("Menu updated! Refresh the page to see changes.")
+        
+        st.markdown("---")
+        
+        # --- Analytics ---
         try:
-            cache_busting_url = f"{SHEET_CSV_URL}&t={int(time.time())}"
-            df = pd.read_csv(cache_busting_url)
+            df = pd.read_csv(f"{SHEET_CSV_URL}&t={int(time.time())}")
+            df = df.dropna(subset=["Total Score"])
+            student_weighted_score = (df["Total Score"].mean() / 100) * 50
             
-            if df.empty or len(df) == 0:
-                st.warning("Database is empty. Waiting for student submissions.")
-            else:
-                numeric_cols = ["Food Quality", "Hygiene", "Service Quality", "Satisfaction", "Total Score"]
-                for col in numeric_cols:
-                    if col in df.columns:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-                
-                if "Total Score" in df.columns:
-                    df_scores = df.dropna(subset=["Total Score"])
-                    
-                    if not df_scores.empty:
-                        total_responses = len(df_scores)
-                        avg_total = df_scores["Total Score"].mean()
-                        student_weighted_score = (avg_total / 100) * 50
-                        
-                        st.markdown("#### Executive Summary")
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("Total Ballots Cast", f"{total_responses}")
-                        col2.metric("Raw Score Avg", f"{avg_total:.2f} / 100")
-                        col3.metric("Final Weighted Score", f"{student_weighted_score:.2f} / 50")
-                        
-                        st.markdown("---")
-                        st.markdown("#### Chronological Performance Trajectory")
-                        df_scores['Timestamp'] = pd.to_datetime(df_scores['Timestamp'])
-                        df_sorted = df_scores.sort_values(by='Timestamp')
-                        df_sorted['Date'] = df_sorted['Timestamp'].dt.date
-                        daily_trend = df_sorted.groupby('Date')['Total Score'].mean().reset_index()
-                        
-                        fig_trend = px.line(
-                            daily_trend, x='Date', y='Total Score',
-                            title='Daily Aggregated Score Trend (Passing: >70)',
-                            markers=True
-                        )
-                        fig_trend.add_hline(y=70, line_dash="dash", line_color="red")
-                        st.plotly_chart(fig_trend, use_container_width=True)
-                
-                st.markdown("#### Verified Data Audit Log")
-                st.dataframe(df.sort_values(by="Timestamp", ascending=False), use_container_width=True)
-                
-                csv = df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="Export Raw Evidence CSV",
-                    data=csv,
-                    file_name=f"Kratu_Mess_Report_{datetime.now().strftime('%Y-%m-%d')}.csv",
-                    mime='text/csv',
-                    use_container_width=True
-                )
-        except Exception as e:
-            st.error(f"Failed to load data. Error: {e}")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Ballots", f"{len(df)}")
+            col2.metric("Raw Avg", f"{df['Total Score'].mean():.2f}")
+            col3.metric("Weighted", f"{student_weighted_score:.2f} / 50")
             
-    elif password_input:
-        st.error("Invalid Administrative Credentials. Access Denied.")
+            df['Date'] = pd.to_datetime(df['Timestamp']).dt.date
+            fig = px.line(df.groupby('Date')['Total Score'].mean().reset_index(), x='Date', y='Total Score', title='Trend')
+            fig.add_hline(y=70, line_dash="dash", line_color="red")
+            st.plotly_chart(fig, use_container_width=True)
+            
+            st.dataframe(df.sort_values(by="Timestamp", ascending=False), use_container_width=True)
+        except Exception:
+            st.warning("Database empty or loading.")
